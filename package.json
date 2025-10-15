@@ -1,0 +1,23 @@
+{
+  "name": "system-glitch",
+  "version": "1.0.0",
+  "description": "System Glitch — browser-in-a-browser proxy with DuckDuckGo front page",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.12",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^6.7.0",
+    "cookie": "^0.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
