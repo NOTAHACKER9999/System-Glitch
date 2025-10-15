@@ -1,60 +1,28 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = 3000;
 
-// Function to rewrite URLs so navigation stays on the proxy
-function rewriteHTML(html) {
-  // Rewrite all DuckDuckGo links to go through proxy
-  html = html.replace(/href="\/?/g, 'href="/?u=');
-  html = html.replace(/action="\/?/g, 'action="/?u=');
-  
-  // Optional: inline scripts to avoid external redirects
-  html = html.replace(/window\.location/g, 'console.log("redirect blocked")');
-  
-  return html;
-}
-
-// Proxy endpoint
-app.get('/', async (req, res) => {
-  try {
-    // Determine target URL
-    let target = 'https://duckduckgo.com';
-    if (req.query.u) {
-      target = 'https://duckduckgo.com' + decodeURIComponent(req.query.u);
-    }
-
-    // Fetch DuckDuckGo page
-    const response = await fetch(target, {
-      headers: {
-        'User-Agent': req.headers['user-agent'] || 'Node.js Proxy',
-      },
-    });
-
-    let body = await response.text();
-    body = rewriteHTML(body);
-
-    // Serve inside a full-page wrapper (like an iframe)
-    res.send(`
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>DuckDuckGo Proxy</title>
-          <style>
-            body, html { margin: 0; padding: 0; height: 100%; }
-            iframe { width: 100%; height: 100%; border: none; }
-          </style>
-        </head>
-        <body>
-          ${body}
-        </body>
-      </html>
-    `);
-  } catch (err) {
-    res.status(500).send('Proxy error: ' + err.message);
-  }
-});
+// Proxy DuckDuckGo
+app.use(
+  '/',
+  createProxyMiddleware({
+    target: 'https://duckduckgo.com',
+    changeOrigin: true,
+    selfHandleResponse: false,
+    secure: true,
+    onProxyReq: (proxyReq, req, res) => {
+      // Remove cookies to avoid tracking
+      proxyReq.removeHeader('cookie');
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      // Optional: modify headers to allow iframe display
+      proxyRes.headers['X-Frame-Options'] = 'ALLOWALL';
+      proxyRes.headers['Content-Security-Policy'] = "frame-ancestors *";
+    },
+  })
+);
 
 app.listen(PORT, () => {
   console.log(`DuckDuckGo proxy running at http://localhost:${PORT}`);
