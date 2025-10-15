@@ -1,29 +1,31 @@
-const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+import fetch from 'node-fetch';
 
-const app = express();
-const PORT = 3000;
+export default async function handler(req, res) {
+  try {
+    // Build the DuckDuckGo URL to fetch
+    const url = 'https://duckduckgo.com' + (req.query.u || '');
 
-// Proxy DuckDuckGo
-app.use(
-  '/',
-  createProxyMiddleware({
-    target: 'https://duckduckgo.com',
-    changeOrigin: true,
-    selfHandleResponse: false,
-    secure: true,
-    onProxyReq: (proxyReq, req, res) => {
-      // Remove cookies to avoid tracking
-      proxyReq.removeHeader('cookie');
-    },
-    onProxyRes: (proxyRes, req, res) => {
-      // Optional: modify headers to allow iframe display
-      proxyRes.headers['X-Frame-Options'] = 'ALLOWALL';
-      proxyRes.headers['Content-Security-Policy'] = "frame-ancestors *";
-    },
-  })
-);
+    // Fetch DuckDuckGo page
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': req.headers['user-agent'] || 'Node.js Proxy',
+      },
+    });
 
-app.listen(PORT, () => {
-  console.log(`DuckDuckGo proxy running at http://localhost:${PORT}`);
-});
+    // Get body as text
+    let body = await response.text();
+
+    // Rewrite headers to allow iframe display
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+
+    // Rewrite links to stay in proxy
+    body = body.replace(/href="\/?/g, 'href="/api/proxy?u=/');
+    body = body.replace(/action="\/?/g, 'action="/api/proxy?u=/');
+
+    // Send the page
+    res.status(200).send(body);
+  } catch (err) {
+    res.status(500).send('Proxy error: ' + err.message);
+  }
+}
